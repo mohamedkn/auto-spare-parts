@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "vendor-app",
+    "name": "AutoParts Vendor",
     "slug": "vendor-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "vendorapp",
+    "scheme": "autopartsvendor",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.autoparts.vendor"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +18,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.autoparts.mobileapp",
+      "package": "com.autoparts.vendor",
       "predictiveBackGestureEnabled": false
     },
     "web": {

@@ -1,0 +1,13 @@
+{
+  "cli": { "version": ">= 16.0.0" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://auto-spare-parts-h6nnbwnx7-mohamed1k.vercel.app" }
+    },
+    "production": {
+      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://auto-spare-parts-h6nnbwnx7-mohamed1k.vercel.app" }
+    }
+  }
+}
