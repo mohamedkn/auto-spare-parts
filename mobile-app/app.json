@@ -2,6 +2,7 @@
   "expo": {
     "name": "AutoParts",
     "slug": "mobile-app",
+    "owner": "mohamedk1ns-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -39,6 +40,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dcb24810-b511-426b-9657-9dccd6db4d97"
+      }
     }
   }
 }
