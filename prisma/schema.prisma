@@ -1,0 +1,737 @@
+// ============================================================================
+// زي — Marketplace Schema (v3)
+// مبني على القسم 6 + النقاط المعمارية في القسم 7 من PLAN.md
+// ============================================================================
+//
+// قيود CHECK غير القابلة للتعبير في Prisma موجودة في migration
+// 20260710120000_delivery_security_integrity.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // ← القسم 7.4: لازم يشاور على الـ pooled endpoint بتاع Neon
+  directUrl = env("DIRECT_DATABASE_URL") // ← يُستخدم فقط للـ migrations (اتصال مباشر بدون pooler)
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  customer
+  vendor
+  admin
+  driver
+}
+
+enum VendorStatus {
+  pending
+  approved
+  suspended
+}
+
+enum ProductStatus {
+  active
+  draft
+  out_of_stock
+}
+
+enum SubOrderStatus {
+  pending
+  confirmed
+  preparing
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  paid
+  failed
+}
+
+enum RefundStatus {
+  pending
+  approved
+  processed
+  rejected
+}
+
+enum OrderPaymentStatus {
+  pending
+  pending_verification // 🆕v3 — للـ InstaPay اليدوي (القسم 10)
+  paid
+  failed
+  refunded
+}
+
+enum PaymentStatus {
+  pending
+  pending_verification
+  succeeded
+  failed
+  refunded
+}
+
+enum DisputeStatus {
+  open
+  under_review
+  resolved
+  rejected
+}
+
+enum ProductCondition {
+  new_original
+  new_aftermarket
+  used
+  refurbished
+}
+
+// ─────────────────────────────────────────────
+// Enums for Delivery System v2
+// ─────────────────────────────────────────────
+
+enum DeliveryJobStatus {
+  pending
+  broadcasted
+  accepted
+  picked_up
+  on_the_way
+  delivered
+  cancelled
+  expired
+  failed_delivery
+  returned_to_vendor
+}
+
+enum WalletOwnerType {
+  driver
+  vendor
+  platform
+}
+
+enum WalletTransactionType {
+  credit
+  debit
+  cod_collected
+  cod_settled
+}
+
+// ─────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────
+
+/// المستخدمين — كل الأدوار في جدول واحد (customer / vendor / admin)
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(150)
+  email        String   @unique @db.VarChar(150)
+  passwordHash String   @map("password_hash")
+  phone        String?  @db.VarChar(20)
+  role         UserRole
+  expoPushToken String? @map("expo_push_token") @db.VarChar(100)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  vendorProfile Vendor?
+  orders        Order[]
+  reviews       Review[]
+  disputes      Dispute[] // النزاعات اللي فتحها اليوزر ده
+  refunds       Refund[] // 🆕 مالي: المرتجعات اللي طلبها العميل
+  wishlist      WishlistItem[] // 🆕 Phase 2.5
+  addresses     UserAddress[] // 🆕 Phase 2.5
+  cart          Cart?
+
+  // Delivery Relations
+  driverProfile   DeliveryDriver?
+  deliveryRatings DeliveryRating[]
+  notifications   Notification[]
+
+  @@index([role])
+  @@map("users")
+}
+
+/// بيانات المتجر — مرتبط بيوزر بدور vendor
+model Vendor {
+  id             String       @id @default(uuid()) @db.Uuid
+  ownerId        String       @unique @map("owner_id") @db.Uuid // 🆕v3: UNIQUE — متجر واحد لكل يوزر (القسم 7.5)
+  storeName      String       @map("store_name") @db.VarChar(150)
+  slug           String       @unique @db.VarChar(150)
+  description    String?
+  logoUrl        String?      @map("logo_url")
+  status         VendorStatus @default(pending)
+  commissionRate Decimal      @default(10.00) @map("commission_rate") @db.Decimal(5, 2) // نسبة عمولة المنصة %
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Location Details (Delivery Integration)
+  address   String?  @db.Text
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+
+  // Payout Details
+  bankAccount    String  @default("") @map("bank_account") @db.VarChar(150)
+  instapayHandle String? @map("instapay_handle") @db.VarChar(100)
+  walletPhone    String? @map("wallet_phone") @db.VarChar(20)
+
+  // 🆕 Phase 2.5: Vendor Rating Cache
+  avgRating    Decimal? @map("avg_rating") @db.Decimal(3, 2)
+  reviewsCount Int      @default(0) @map("reviews_count")
+
+  // Relations
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  products  Product[]
+  subOrders SubOrder[]
+  payouts   Payout[] // 🆕 مالي: سجل تسويات المتجر
+
+  @@index([status])
+  @@map("vendors")
+}
+
+/// الفئات — تدعم فئات فرعية (self-referencing)
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  imageUrl    String?  @map("image_url") @db.Text // 🆕 Phase 2.5: Category Image
+  parentId    String?  @map("parent_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+/// صانع السيارة (مثل تويوتا، هيونداي)
+model VehicleMake {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(100)
+  slug      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  models VehicleModel[]
+
+  @@map("vehicle_makes")
+}
+
+/// موديل السيارة (مثل كورولا، النترا)
+model VehicleModel {
+  id        String   @id @default(uuid()) @db.Uuid
+  makeId    String   @map("make_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  slug      String   @unique @db.VarChar(100)
+  startYear Int?     @map("start_year") // سنة بداية الجيل
+  endYear   Int?     @map("end_year") // سنة نهاية الجيل
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  make            VehicleMake            @relation(fields: [makeId], references: [id], onDelete: Cascade)
+  compatibilities ProductCompatibility[]
+
+  @@index([makeId])
+  @@map("vehicle_models")
+}
+
+/// جدول التوافق بين المنتج والسيارة
+model ProductCompatibility {
+  id             String   @id @default(uuid()) @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  vehicleModelId String   @map("vehicle_model_id") @db.Uuid
+  specificYear   Int?     @map("specific_year") // لو التوافق لسنة محددة فقط داخل الجيل
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vehicleModel VehicleModel @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
+
+  // منع تكرار نفس التوافق لنفس المنتج ونفس الموديل ونفس السنة
+  @@unique([productId, vehicleModelId, specificYear])
+  @@index([productId])
+  @@index([vehicleModelId])
+  @@map("product_compatibilities")
+}
+
+/// المنتجات
+model Product {
+  id            String           @id @default(uuid()) @db.Uuid
+  vendorId      String           @map("vendor_id") @db.Uuid
+  categoryId    String?          @map("category_id") @db.Uuid
+  name          String           @db.VarChar(200)
+  slug          String           @db.VarChar(200)
+  description   String?
+  oemNumber     String?          @map("oem_number") @db.VarChar(100) // رقم القطعة الأصلي
+  partNumber    String?          @map("part_number") @db.VarChar(100) // رقم الشركة المصنعة للقطعة
+  brand         String?          @db.VarChar(100) // ماركة القطعة
+  condition     ProductCondition @default(new_original)
+  placement     String?          @db.VarChar(50) // مكان التركيب: أمام، خلف، يمين، يسار
+  price         Decimal          @db.Decimal(10, 2) // CHECK (price > 0) — في الـ migration اليدوية
+  stockQuantity Int              @default(0) @map("stock_quantity") // CHECK (>= 0) — في الـ migration اليدوية
+  status        ProductStatus    @default(active)
+  version       Int              @default(0) // القسم 7.1: Optimistic Locking لمنع overselling
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  vendor          Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category        Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  images          ProductImage[]
+  variants        ProductVariant[] // 🆕v3 Phase 2
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  reviews         Review[]
+  wishlistedBy    WishlistItem[]
+  compatibilities ProductCompatibility[] // السيارات المتوافقة
+
+  @@unique([vendorId, slug]) // 🆕v3: فريد لكل متجر مش عالميًا
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([oemNumber])
+  @@index([partNumber])
+  @@map("products")
+}
+
+/// صور المنتجات
+model ProductImage {
+  id        String @id @default(uuid()) @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  url       String
+  position  Int    @default(0)
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+/// متغيرات المنتج (Product Variants) — Phase 2
+model ProductVariant {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  name          String   @db.VarChar(150) // e.g. "Red - XL"
+  sku           String?  @unique @db.VarChar(100)
+  price         Decimal? @db.Decimal(10, 2) // Optional override price
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  version       Int      @default(0) // Optimistic Locking
+
+  // Relations
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+/// عربة الشراء — سلة نشطة واحدة لكل يوزر
+model Cart {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid // 🆕v3: UNIQUE — سلة واحدة لكل يوزر
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+/// عناصر السلة
+model CartItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  cartId    String  @map("cart_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  variantId String? @map("variant_id") @db.Uuid
+  quantity  Int     @default(1) // CHECK (quantity > 0) — في الـ migration اليدوية
+
+  // Relations
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // لاحظ: Prisma لا يعالج NULL بشكل فريد جيداً، لذلك الـ UPSERT يجب أن يعتمد على منطق الكود
+  // أو نقوم بإنشاء index فريد في migration يدوية يدعم NULLs
+  @@index([cartId, productId, variantId])
+  @@map("cart_items")
+}
+
+// ───────────────────────────────────────────────────────────────
+// ===== أهم جزء: تقسيم الطلب (Order → SubOrders → OrderItems) =====
+// ───────────────────────────────────────────────────────────────
+
+/// الطلب الأب — اللي العميل شافه وقت الـ checkout
+model Order {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @map("user_id") @db.Uuid
+  orderNumber     String             @unique @map("order_number") @db.VarChar(30)
+  totalAmount     Decimal            @map("total_amount") @db.Decimal(10, 2) // CHECK (>= 0)
+  shippingAddress Json               @map("shipping_address") // JSONB
+  paymentStatus   OrderPaymentStatus @default(pending) @map("payment_status")
+  idempotencyKey  String?            @unique @map("idempotency_key") @db.VarChar(100) // القسم 7.2: يمنع تكرار الطلب
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Restrict) // RESTRICT: سجل الطلبات محمي
+  subOrders SubOrder[]
+  payments  Payment[]
+
+  @@index([userId])
+  @@map("orders")
+}
+
+/// الطلب الفرعي — واحد لكل متجر داخل نفس الأوردر
+model SubOrder {
+  id                     String         @id @default(uuid()) @db.Uuid
+  orderId                String         @map("order_id") @db.Uuid
+  vendorId               String         @map("vendor_id") @db.Uuid
+  status                 SubOrderStatus @default(pending)
+  subtotal               Decimal        @db.Decimal(10, 2) // CHECK (>= 0)
+  commissionRateSnapshot Decimal        @map("commission_rate_snapshot") @db.Decimal(5, 2) // 🆕v3: نسخة من commission_rate وقت الطلب (audit trail)
+  commissionAmount       Decimal        @map("commission_amount") @db.Decimal(10, 2) // CHECK (>= 0)
+  vendorPayoutAmount     Decimal        @map("vendor_payout_amount") @db.Decimal(10, 2) // CHECK (>= 0)
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor      Vendor       @relation(fields: [vendorId], references: [id], onDelete: Restrict) // RESTRICT: سجل مالي محمي
+  items       OrderItem[]
+  disputes    Dispute[]
+  payout      Payout? // 🆕 مالي: تسوية مالية (واحدة كحد أقصى)
+  deliveryJob DeliveryJob? // 🆕 توصيل: مهمة التوصيل المرتبطة بهذا الطلب الفرعي
+
+  @@index([orderId])
+  @@index([vendorId]) // القسم 7.6: يسرّع GET /api/vendor/orders جدًا
+  @@index([status])
+  @@map("sub_orders")
+}
+
+/// عناصر الطلب الفرعي
+model OrderItem {
+  id         String  @id @default(uuid()) @db.Uuid
+  subOrderId String  @map("sub_order_id") @db.Uuid
+  productId  String  @map("product_id") @db.Uuid
+  variantId  String? @map("variant_id") @db.Uuid
+  quantity   Int // CHECK (quantity > 0)
+  unitPrice  Decimal @map("unit_price") @db.Decimal(10, 2) // CHECK (>= 0)
+  totalPrice Decimal @map("total_price") @db.Decimal(10, 2) // CHECK (>= 0)
+
+  // Relations
+  subOrder SubOrder        @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
+  product  Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // RESTRICT: يحافظ على تاريخ الطلب لو المنتج اتحذف
+  variant  ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  reviews  Review[] // 🆕v3: لإثبات verified purchase
+  refunds  Refund[] // 🆕 مالي: المرتجعات
+
+  @@index([subOrderId])
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────────────
+// المدفوعات
+// ─────────────────────────────────────────────
+
+/// المدفوعات — provider مرن (card / vodafone_cash / instapay / cod)
+model Payment {
+  id                    String        @id @default(uuid()) @db.Uuid
+  orderId               String        @map("order_id") @db.Uuid
+  provider              String        @db.VarChar(30) // 'paymob_card' | 'vodafone_cash' | 'instapay' | 'cod'
+  providerTransactionId String?       @map("provider_transaction_id") @db.VarChar(100)
+  amount                Decimal       @db.Decimal(10, 2) // CHECK (amount > 0)
+  status                PaymentStatus @default(pending)
+  paidAt                DateTime?     @map("paid_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Restrict) // RESTRICT: سجل مالي محمي
+  refunds Refund[] // 🆕 مالي: المرتجعات المرتبطة بالدفع
+
+  @@unique([provider, providerTransactionId]) // القسم 7.3: يمنع معالجة نفس webhook مرتين
+  @@index([orderId])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────
+// التقييمات (Phase 2)
+// ─────────────────────────────────────────────
+
+/// تقييمات المنتجات
+model Review {
+  id          String   @id @default(uuid()) @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  orderItemId String?  @map("order_item_id") @db.Uuid // 🆕v3: اختياري — لإثبات verified purchase
+  rating      Int // CHECK (rating BETWEEN 1 AND 5)
+  comment     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@unique([productId, userId]) // 🆕v3: يمنع تقييم مكرر لنفس المنتج
+  @@index([productId])
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────────────
+// النزاعات (Phase 3)
+// ─────────────────────────────────────────────
+
+/// نزاعات الطلبات
+model Dispute {
+  id         String        @id @default(uuid()) @db.Uuid
+  subOrderId String        @map("sub_order_id") @db.Uuid
+  openedById String        @map("opened_by") @db.Uuid
+  reason     String        @db.Text
+  status     DisputeStatus @default(open)
+  resolution String?       @db.Text
+  createdAt  DateTime      @default(now()) @map("created_at")
+  resolvedAt DateTime?     @map("resolved_at")
+
+  // Relations
+  subOrder SubOrder @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
+  openedBy User     @relation(fields: [openedById], references: [id], onDelete: Restrict) // RESTRICT: سجل النزاعات محمي
+
+  @@index([subOrderId])
+  @@map("disputes")
+}
+
+// ─────────────────────────────────────────────
+// 🆕 مالي: تسوية المتاجر (Payouts)
+// ─────────────────────────────────────────────
+
+model Payout {
+  id            String       @id @default(uuid()) @db.Uuid
+  vendorId      String       @map("vendor_id") @db.Uuid
+  subOrderId    String       @unique @map("sub_order_id") @db.Uuid
+  amount        Decimal      @db.Decimal(10, 2) // CHECK (>= 0)
+  status        PayoutStatus @default(pending)
+  payoutBatchId String?      @map("payout_batch_id") @db.Uuid
+  bankReference String?      @map("bank_reference") @db.VarChar(100)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  paidAt        DateTime?    @map("paid_at")
+
+  // Relations
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  subOrder SubOrder @relation(fields: [subOrderId], references: [id], onDelete: Restrict)
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([payoutBatchId])
+  @@map("payouts")
+}
+
+// ─────────────────────────────────────────────
+// 🆕 مالي: استرجاعات (Refunds)
+// ─────────────────────────────────────────────
+
+model Refund {
+  id            String       @id @default(uuid()) @db.Uuid
+  orderItemId   String       @map("order_item_id") @db.Uuid
+  paymentId     String       @map("payment_id") @db.Uuid
+  amount        Decimal      @db.Decimal(10, 2) // CHECK (>= 0)
+  reason        String       @db.Text
+  status        RefundStatus @default(pending)
+  requestedById String       @map("requested_by") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at")
+  processedAt   DateTime?    @map("processed_at")
+
+  // Relations
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  requestedBy User      @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+
+  @@index([orderItemId])
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+// ─────────────────────────────────────────────
+// 🆕 Phase 2.5: Wishlist & User Addresses
+// ─────────────────────────────────────────────
+
+model WishlistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlist_items")
+}
+
+model UserAddress {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  label             String   @db.VarChar(50) // e.g., "Home", "Work"
+  fullName          String   @map("full_name") @db.VarChar(150)
+  phone             String   @db.VarChar(20)
+  governorate       String   @db.VarChar(100)
+  city              String   @db.VarChar(100)
+  streetAddress     String   @map("street_address") @db.Text
+  buildingApartment String?  @map("building_apartment") @db.VarChar(100)
+  landmark          String?  @db.VarChar(150)
+  isDefault         Boolean  @default(false) @map("is_default")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_addresses")
+}
+
+// ─────────────────────────────────────────────
+// 🆕 Delivery System v2 Models
+// ─────────────────────────────────────────────
+
+model DeliveryDriver {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  vehicleType         String   @map("vehicle_type") @db.VarChar(50) // e.g. motorcycle, car, truck
+  maxWeightCapacityKg Decimal? @map("max_weight_capacity_kg") @db.Decimal(6, 2)
+  status              String   @default("offline") @db.VarChar(20) // online, offline, busy
+  currentLat          Decimal? @map("current_lat") @db.Decimal(10, 8)
+  currentLng          Decimal? @map("current_lng") @db.Decimal(11, 8)
+  walletBalance       Decimal  @default(0) @map("wallet_balance") @db.Decimal(10, 2) // Cache only
+  cashOnHandBalance   Decimal  @default(0) @map("cash_on_hand_balance") @db.Decimal(10, 2)
+  cashLimit           Decimal  @default(1000) @map("cash_limit") @db.Decimal(10, 2)
+  rating              Decimal? @db.Decimal(3, 2)
+  isVerified          Boolean  @default(false) @map("is_verified")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user         User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  deliveryJobs DeliveryJob[]
+  ratings      DeliveryRating[]
+
+  @@index([status])
+  @@map("delivery_drivers")
+}
+
+model DeliveryJob {
+  id         String            @id @default(uuid()) @db.Uuid
+  subOrderId String            @unique @map("sub_order_id") @db.Uuid
+  driverId   String?           @map("driver_id") @db.Uuid
+  status     DeliveryJobStatus @default(pending)
+
+  // Financials
+  deliveryFee              Decimal @map("delivery_fee") @db.Decimal(10, 2)
+  driverEarning            Decimal @default(0) @map("driver_earning") @db.Decimal(10, 2)
+  platformCommissionAmount Decimal @default(0) @map("platform_commission_amount") @db.Decimal(10, 2)
+  isCod                    Boolean @default(false) @map("is_cod")
+  codAmountToCollect       Decimal @default(0) @map("cod_amount_to_collect") @db.Decimal(10, 2)
+
+  // Logistics
+  distanceKm     Decimal? @map("distance_km") @db.Decimal(6, 2)
+  pickupAddress  String   @map("pickup_address") @db.Text
+  dropoffAddress String   @map("dropoff_address") @db.Text
+  pickupLat      Decimal? @map("pickup_lat") @db.Decimal(10, 8)
+  pickupLng      Decimal? @map("pickup_lng") @db.Decimal(11, 8)
+  dropoffLat     Decimal? @map("dropoff_lat") @db.Decimal(10, 8)
+  dropoffLng     Decimal? @map("dropoff_lng") @db.Decimal(11, 8)
+
+  // Security
+  pickupOtp   String? @map("pickup_otp") @db.VarChar(10)
+  deliveryOtp String? @map("delivery_otp") @db.VarChar(10)
+
+  // Tracking
+  assignmentAttempt  Int     @default(0) @map("assignment_attempt")
+  version            Int     @default(0) // Optimistic Locking
+  cancellationReason String? @map("cancellation_reason") @db.Text
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  pickedUpAt  DateTime? @map("picked_up_at")
+  deliveredAt DateTime? @map("delivered_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  // Relations
+  subOrder SubOrder        @relation(fields: [subOrderId], references: [id], onDelete: Restrict)
+  driver   DeliveryDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  walletTransactions WalletTransaction[]
+  rating DeliveryRating?
+
+  @@index([status])
+  @@index([driverId])
+  @@map("delivery_jobs")
+}
+
+model WalletTransaction {
+  id                   String                @id @default(uuid()) @db.Uuid
+  walletOwnerType      WalletOwnerType       @map("wallet_owner_type")
+  walletOwnerId        String                @map("wallet_owner_id") @db.Uuid
+  type                 WalletTransactionType
+  amount               Decimal               @db.Decimal(10, 2)
+  balanceAfter         Decimal               @map("balance_after") @db.Decimal(10, 2) // Snapshot
+  relatedDeliveryJobId String?               @map("related_delivery_job_id") @db.Uuid
+  createdAt            DateTime              @default(now()) @map("created_at")
+
+  deliveryJob DeliveryJob? @relation(fields: [relatedDeliveryJobId], references: [id], onDelete: SetNull)
+
+  @@index([walletOwnerId, walletOwnerType])
+  @@map("wallet_transactions")
+}
+
+model DeliveryRating {
+  id            String   @id @default(uuid()) @db.Uuid
+  driverId      String   @map("driver_id") @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  deliveryJobId String   @unique @map("delivery_job_id") @db.Uuid // One rating per job
+  rating        Int // CHECK (rating BETWEEN 1 AND 5)
+  comment       String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  driver   DeliveryDriver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  customer User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deliveryJob DeliveryJob @relation(fields: [deliveryJobId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@map("delivery_ratings")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  type      String   // 'ORDER_RECEIVED', 'PAYOUT_REQUESTED', 'PAYOUT_SETTLED', etc.
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
