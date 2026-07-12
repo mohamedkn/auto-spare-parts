@@ -12,7 +12,9 @@ export async function GET() {
       orderBy: { name: "asc" }
     });
     
-    return NextResponse.json({ data: makes });
+    const response = NextResponse.json({ data: makes });
+    response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+    return response;
   } catch (error) {
     console.error("Error fetching vehicles:", error);
     return NextResponse.json({ error: "Failed to fetch vehicles" }, { status: 500 });

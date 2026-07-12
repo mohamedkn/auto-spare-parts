@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
       aiIntent: intentData, // Return what AI understood for debugging/UI feedback
       products,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Semantic Search Error, falling back to standard search:", error);
     
     try {
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
         aiIntent: { searchTerm: parsedQuery + " (بحث تقليدي)" }, // Indicate it's fallback
         products: fallbackProducts,
       });
-    } catch (fallbackError) {
+    } catch {
       return NextResponse.json(
         { error: "Failed to perform search" },
         { status: 500 }

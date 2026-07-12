@@ -55,12 +55,11 @@ export default function TabLayout() {
         <Tabs.Screen
           name="logo"
           options={{
-            title: '',
-            tabBarIcon: () => (
-              <View className="w-16 h-16 bg-zinc-950 rounded-full items-center justify-center -mt-7 shadow-xl border-[4px] border-white">
-                 <Text className="text-amber-400 font-black text-[10px] text-center leading-tight">
-                   AUTO{'\n'}PARTS
-                 </Text>
+            title: 'الرادار',
+            tabBarIcon: ({ color, focused }) => (
+              <View className="relative">
+                <Ionicons name={focused ? "radio" : "radio-outline"} size={27} color={color} />
+                <View className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
               </View>
             ),
           }}

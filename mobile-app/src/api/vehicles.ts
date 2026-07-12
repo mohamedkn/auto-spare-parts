@@ -8,6 +8,7 @@ export interface VehicleModel {
 export interface VehicleMake {
   id: string;
   name: string;
+  market: string;
   models: VehicleModel[];
 }
 

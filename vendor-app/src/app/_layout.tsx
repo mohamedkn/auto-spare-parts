@@ -20,8 +20,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 2, // 2 minutes
+      gcTime: 1000 * 60 * 10,
       retry: 1,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
     },
   },
 });
@@ -38,7 +39,7 @@ export default function RootLayout() {
         router.replace('/(auth)/login');
       }
     });
-  }, []);
+  }, [checkAuth]);
 
   return (
     <QueryClientProvider client={queryClient}>

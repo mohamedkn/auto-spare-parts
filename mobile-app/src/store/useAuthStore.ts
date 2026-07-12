@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../api/client';
+import { getAuthToken, removeAuthToken, setAuthToken } from '../lib/auth-token-storage';
 
 interface User {
   id: string;
@@ -26,13 +27,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   
   login: async (token, user) => {
-    await AsyncStorage.setItem('userToken', token);
+    await setAuthToken(token);
     await AsyncStorage.setItem('userData', JSON.stringify(user));
     set({ token, user });
   },
   
   logout: async () => {
-    await AsyncStorage.removeItem('userToken');
+    await removeAuthToken();
     await AsyncStorage.removeItem('userData');
     set({ token: null, user: null });
   },
@@ -44,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkAuth: async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getAuthToken();
       if (token) {
         const response = await apiClient.get('/auth/me');
         const user = response.data.data.user as User;
@@ -55,7 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch {
       await Promise.all([
-        AsyncStorage.removeItem('userToken'),
+        removeAuthToken(),
         AsyncStorage.removeItem('userData'),
       ]);
       set({ token: null, user: null, isLoading: false });

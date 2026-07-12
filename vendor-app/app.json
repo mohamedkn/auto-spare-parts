@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "AutoParts Vendor",
+    "owner": "mohamedk1ns-team",
     "slug": "vendor-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,11 +35,18 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b914eaac-742b-4a5e-b954-0b2ee885bda4"
+      }
     }
   }
 }

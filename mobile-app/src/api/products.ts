@@ -30,6 +30,7 @@ export interface ProductQueryParams {
   condition?: 'new_original' | 'new_aftermarket' | 'used' | 'refurbished';
   vehicleMakeId?: string;
   vehicleModelId?: string;
+  vehicleMarkets?: string;
   year?: string | number;
   minPrice?: number;
   maxPrice?: number;

@@ -27,7 +27,7 @@ export default function AccountScreen() {
 
   const handleWhatsApp = () => {
     const phoneNumber = '+201503444184'; // Replace with actual support number
-    const message = 'مرحباً، أحتاج إلى مساعدة بخصوص تطبيقط قطع الغيار';
+    const message = 'مرحباً، أحتاج إلى مساعدة بخصوص تطبيق قطع الغيار';
     const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
     
     Linking.canOpenURL(url).then(supported => {

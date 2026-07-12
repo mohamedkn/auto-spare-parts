@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/db";
 import { successResponse, handleApiError } from "@/lib/api-response";
 import { EGYPT_MARKET_CATEGORIES } from "@/lib/catalog/egypt-auto-parts";
+import { NextRequest } from "next/server";
 
 export async function GET() {
   try {
@@ -38,7 +39,9 @@ export async function GET() {
       (a, b) => (priority.get(b.slug) || 0) - (priority.get(a.slug) || 0) || a.name.localeCompare(b.name, "ar"),
     );
 
-    return successResponse(orderedCategories);
+    const response = successResponse(orderedCategories);
+    response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+    return response;
   } catch (error) {
     return handleApiError(error);
   }
@@ -56,9 +59,9 @@ const createCategorySchema = z.object({
   parentId: z.string().uuid("رابط الفئة الأب غير صحيح").optional(),
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    await requireRole(request as any, "admin");
+    await requireRole(request, "admin");
 
     const body = await request.json();
     const data = createCategorySchema.parse(body);

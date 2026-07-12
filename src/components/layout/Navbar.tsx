@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getUserSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { NavbarClient } from "./NavbarClient";
@@ -36,7 +35,7 @@ export async function Navbar() {
   }
 
   // Get root categories for navigation
-  let categories: any[] = [];
+  let categories: Array<{ id: string; name: string; slug: string }> = [];
   try {
     categories = await prisma.category.findMany({
       where: { parentId: null },

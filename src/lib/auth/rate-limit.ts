@@ -11,6 +11,7 @@ interface RateLimitTracker {
 }
 
 const rateLimiter = new Map<string, RateLimitTracker>();
+const MAX_TRACKED_KEYS = 10_000;
 
 /**
  * Basic Rate Limiter
@@ -24,12 +25,16 @@ export function checkRateLimit(ip: string, limit: number = 5, windowMs: number =
   const tracker = rateLimiter.get(ip);
 
   if (!tracker) {
+    if (rateLimiter.size >= MAX_TRACKED_KEYS) {
+      const oldestKey = rateLimiter.keys().next().value;
+      if (oldestKey) rateLimiter.delete(oldestKey);
+    }
     rateLimiter.set(ip, { count: 1, resetAt: now + windowMs });
     return true;
   }
 
   // If window expired, reset
-  if (now > tracker.resetAt) {
+  if (now >= tracker.resetAt) {
     tracker.count = 1;
     tracker.resetAt = now + windowMs;
     return true;
@@ -56,6 +61,6 @@ if (typeof setInterval !== 'undefined') {
   }, 60000); // Run every 60s
 
   if (intervalId && typeof intervalId === 'object' && 'unref' in intervalId) {
-    (intervalId as any).unref(); // don't block exit
+    intervalId.unref(); // don't block exit
   }
 }

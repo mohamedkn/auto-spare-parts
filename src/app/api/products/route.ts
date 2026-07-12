@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       productIdsFromRating,
     });
     const relevanceMode = Boolean(query.search && sortBy === "relevance");
-    const candidateLimit = relevanceMode ? 1000 : query.limit;
+    const candidateLimit = relevanceMode ? 200 : query.limit;
     const skip = relevanceMode ? 0 : (query.page - 1) * query.limit;
 
     const [products, total] = await Promise.all([
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
       formattedProducts.sort((a, b) => b.avgRating - a.avgRating);
     }
 
-    return successResponse({
+    const response = successResponse({
       products: formattedProducts,
       pagination: {
         page: query.page,
@@ -148,6 +148,8 @@ export async function GET(request: NextRequest) {
           }
         : undefined,
     });
+    response.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+    return response;
   } catch (error) {
     return handleApiError(error);
   }

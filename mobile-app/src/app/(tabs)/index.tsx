@@ -57,6 +57,7 @@ export default function HomeScreen() {
   const [vehicleMakeId, setVehicleMakeId] = useState('');
   const [vehicleModelId, setVehicleModelId] = useState('');
   const [vehicleYear, setVehicleYear] = useState('');
+  const [vehicleMarkets, setVehicleMarkets] = useState<string[]>([]);
   const [locationName, setLocationName] = useState('القاهرة، مصر');
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const favoritesCount = useFavoritesStore((state) => state.favorites.length);
@@ -68,6 +69,7 @@ export default function HomeScreen() {
       vehicleMakeId,
       vehicleModelId,
       vehicleYear,
+      vehicleMarkets.join(','),
     ],
     queryFn: () =>
       fetchProducts({
@@ -76,6 +78,7 @@ export default function HomeScreen() {
         vehicleMakeId: vehicleMakeId || undefined,
         vehicleModelId: vehicleModelId || undefined,
         year: vehicleYear || undefined,
+        vehicleMarkets: vehicleMarkets.length ? vehicleMarkets.join(',') : undefined,
       }),
   });
 
@@ -201,14 +204,31 @@ export default function HomeScreen() {
               </Text>
               <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              className="mt-3 min-h-14 flex-row-reverse items-center rounded-xl border border-amber-400/30 bg-amber-400/10 px-4"
+              onPress={() => router.push('/inquiries' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="طلب تسعير قطعة غير موجودة"
+            >
+              <View className="h-9 w-9 items-center justify-center rounded-lg bg-amber-400">
+                <Ionicons name="radio-outline" size={20} color="#18181b" />
+              </View>
+              <View className="mr-3 flex-1 items-end">
+                <Text className="text-sm font-black text-white">مش لاقي القطعة؟ اطلب تسعيرها</Text>
+                <Text className="mt-0.5 text-[11px] text-zinc-400">اكتب وصفك واستقبل عروض التجار</Text>
+              </View>
+              <Ionicons name="chevron-back" size={18} color="#fbbf24" />
+            </TouchableOpacity>
           </Animated.View>
         </View>
 
         <VehicleSelector
-          onSearch={(makeId, modelId, year) => {
+          onSearch={(makeId, modelId, year, markets) => {
             setVehicleMakeId(makeId);
             setVehicleModelId(modelId);
             setVehicleYear(year);
+            setVehicleMarkets(markets);
           }}
         />
 
@@ -364,6 +384,7 @@ export default function HomeScreen() {
                   setVehicleMakeId('');
                   setVehicleModelId('');
                   setVehicleYear('');
+                  setVehicleMarkets([]);
                 }}
               >
                 <Text className="font-bold text-amber-700">مسح عوامل التصفية</Text>

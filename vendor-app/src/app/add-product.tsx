@@ -76,6 +76,7 @@ export default function AddProductScreen() {
   const [showMakePicker, setShowMakePicker] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [recommendedCategory, setRecommendedCategory] = useState<Category | null>(null);
+  const [categorySearch, setCategorySearch] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -90,13 +91,19 @@ export default function AddProductScreen() {
     imageUrl: '',
   });
 
-  useEffect(() => {
+  const loadCategories = () => {
+    setCategoriesLoading(true);
+    setCategoryError(false);
     apiClient.get('/categories').then((r: any) => {
       if (r.data?.data) {
         setCategories(flattenLeafCategories(r.data.data as Category[]));
         setCategoryError(false);
       }
     }).catch(() => setCategoryError(true)).finally(() => setCategoriesLoading(false));
+  };
+
+  useEffect(() => {
+    loadCategories();
     apiClient.get('/vehicles').then((r: any) => {
       if (r.data?.data) setVehicles(r.data.data);
     }).catch(() => {});
@@ -119,6 +126,10 @@ export default function AddProductScreen() {
   const selectedMake = vehicles.find(v => v.id === selectedMakeId);
   const selectedCondition = CONDITIONS.find(c => c.value === form.condition);
   const selectedCategory = categories.find(c => c.id === form.categoryId);
+  const normalizedCategorySearch = categorySearch.trim().toLocaleLowerCase('ar');
+  const filteredCategories = normalizedCategorySearch
+    ? categories.filter(category => category.name.toLocaleLowerCase('ar').includes(normalizedCategorySearch))
+    : categories;
 
   const addCompatibility = () => {
     if (!selectedMakeId || !selectedModelId) {
@@ -289,7 +300,10 @@ export default function AddProductScreen() {
             <View className="mb-3">
               <Text className="text-slate-500 text-xs mb-1 text-right">التصنيف الدقيق <Text className="text-red-500">*</Text></Text>
               <TouchableOpacity
-                onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                onPress={() => {
+                  setShowCategoryPicker(!showCategoryPicker);
+                  if (showCategoryPicker) setCategorySearch('');
+                }}
                 disabled={categoriesLoading || categoryError}
                 className="bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 flex-row justify-between items-center"
               >
@@ -309,19 +323,46 @@ export default function AddProductScreen() {
                 </TouchableOpacity>
               )}
               {showCategoryPicker && (
-                <View className="bg-white border border-slate-300 rounded-xl mt-1 max-h-64">
-                  {categories.map(cat => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => { setForm(p => ({ ...p, categoryId: cat.id })); setShowCategoryPicker(false); }}
-                      className="px-4 py-3 border-b border-slate-200"
-                    >
-                      <Text className={`text-right ${form.categoryId === cat.id ? 'text-primary font-bold' : 'text-slate-900'}`}>{cat.name}</Text>
-                    </TouchableOpacity>
-                  ))}
+                <View className="bg-white border border-slate-300 rounded-xl mt-1 overflow-hidden">
+                  <View className="flex-row-reverse items-center border-b border-slate-200 px-3">
+                    <Ionicons name="search-outline" size={17} color="#64748b" />
+                    <TextInput
+                      value={categorySearch}
+                      onChangeText={setCategorySearch}
+                      placeholder="ابحث عن التصنيف"
+                      placeholderTextColor="#64748b"
+                      textAlign="right"
+                      className="flex-1 px-3 py-3 text-slate-900"
+                    />
+                  </View>
+                  <ScrollView nestedScrollEnabled className="max-h-56" keyboardShouldPersistTaps="handled">
+                    {filteredCategories.map(cat => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        onPress={() => {
+                          setForm(p => ({ ...p, categoryId: cat.id }));
+                          setShowCategoryPicker(false);
+                          setCategorySearch('');
+                        }}
+                        className="px-4 py-3 border-b border-slate-200"
+                      >
+                        <Text className={`text-right ${form.categoryId === cat.id ? 'text-primary font-bold' : 'text-slate-900'}`}>{cat.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {filteredCategories.length === 0 && (
+                      <Text className="px-4 py-5 text-center text-sm text-slate-500">لا يوجد تصنيف مطابق</Text>
+                    )}
+                  </ScrollView>
                 </View>
               )}
-              {categoryError && <Text className="mt-2 text-right text-xs font-medium text-red-500">تعذر تحميل التصنيفات. ارجع للصفحة وحاول مرة أخرى.</Text>}
+              {categoryError && (
+                <View className="mt-2 flex-row-reverse items-center justify-between rounded-xl bg-red-50 px-3 py-2">
+                  <Text className="flex-1 text-right text-xs font-medium text-red-600">تعذر تحميل التصنيفات.</Text>
+                  <TouchableOpacity onPress={loadCategories} className="rounded-lg bg-white px-3 py-2">
+                    <Text className="text-xs font-bold text-red-600">إعادة المحاولة</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -418,13 +459,16 @@ export default function AddProductScreen() {
             <TextInput
               value={form.imageUrl}
               onChangeText={v => setForm(p => ({ ...p, imageUrl: v }))}
-              placeholder="https://example.com/image.jpg"
+              placeholder="https://res.cloudinary.com/.../image.jpg"
               placeholderTextColor="#52525b"
               textAlign="right"
               autoCapitalize="none"
               keyboardType="url"
               className="bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-900"
             />
+            <Text className="mt-2 text-right text-[11px] leading-5 text-slate-500">
+              اختياري — استخدم رابط HTTPS من Cloudinary أو Unsplash فقط.
+            </Text>
           </View>
 
           {/* ── السيارات المتوافقة ── */}

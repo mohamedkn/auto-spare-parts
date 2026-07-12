@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { fetchVehicles } from '../api/vehicles';
 
 interface VehicleSelectorProps {
-  onSearch: (makeId: string, modelId: string, year: string) => void;
+  onSearch: (makeId: string, modelId: string, year: string, markets: string[]) => void;
 }
 
 function PickerButton({
@@ -93,14 +93,14 @@ export function VehicleSelector({ onSearch }: VehicleSelectorProps) {
 
   const applyFilters = () => {
     void Haptics.selectionAsync();
-    onSearch(makeId, modelId, year.trim());
+    onSearch(makeId, modelId, year.trim(), selectedMake ? [selectedMake.market] : []);
   };
 
   const clearFilters = () => {
     setMakeId('');
     setModelId('');
     setYear('');
-    onSearch('', '', '');
+    onSearch('', '', '', []);
   };
 
   return (

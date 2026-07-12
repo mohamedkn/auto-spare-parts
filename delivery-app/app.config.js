@@ -22,6 +22,7 @@ module.exports = ({ config }) => {
     },
     plugins: [
       ...(config.plugins || []),
+      'expo-secure-store',
       ['expo-location', { locationWhenInUsePermission: 'اسمح لتطبيق التوصيل باستخدام موقعك لعرض الطلبات القريبة.' }],
     ],
     extra: {

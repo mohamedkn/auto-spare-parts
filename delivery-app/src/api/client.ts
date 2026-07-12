@@ -1,13 +1,16 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { getAuthToken } from '../lib/auth-token-storage';
 
 // Dynamically determine the local IP for the API URL based on Expo's hostUri
 // This ensures that testing on a physical device over Wi-Fi connects to the correct local server (Next.js)
 export const getBaseUrl = () => {
   const configuredUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
-  if (configuredUrl) return configuredUrl;
+  if (configuredUrl) {
+    if (!__DEV__ && !configuredUrl.startsWith('https://')) throw new Error('Production API URL must use HTTPS');
+    return configuredUrl;
+  }
 
   if (__DEV__ && Constants.expoConfig?.hostUri) {
     const host = Constants.expoConfig.hostUri.split(`:`)[0];
@@ -35,12 +38,13 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 12_000,
 });
 
 // Add interceptor to attach token to requests
 apiClient.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('userToken');
+    const token = await getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

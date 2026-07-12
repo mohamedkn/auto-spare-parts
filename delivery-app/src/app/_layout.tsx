@@ -14,8 +14,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 2, // 2 minutes
+      gcTime: 1000 * 60 * 10,
       retry: 1,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
     },
   },
 });
@@ -30,7 +31,7 @@ export default function RootLayout() {
     checkAuth().finally(() => {
       SplashScreen.hideAsync();
     });
-  }, []);
+  }, [checkAuth]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -42,7 +43,7 @@ export default function RootLayout() {
     } else if (user && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [user, isLoading, segments]);
+  }, [user, isLoading, segments, router]);
 
   return (
     <QueryClientProvider client={queryClient}>
