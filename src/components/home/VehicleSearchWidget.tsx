@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Car, Search, X } from "lucide-react";
+import { Car, ChevronDown, ChevronUp, Search, X } from "lucide-react";
 
 interface VehicleModel {
   id: string;
@@ -47,6 +47,12 @@ export function VehicleSearchWidget() {
 
   const selectedMake = vehicles.find((vehicle) => vehicle.id === makeId);
   const hasVehicleFilter = Boolean(makeId || modelId || year);
+  const maximumYear = new Date().getFullYear() + 1;
+
+  const stepYear = (direction: 1 | -1) => {
+    const currentYear = Number(year) || new Date().getFullYear();
+    setYear(String(Math.min(maximumYear, Math.max(1950, currentYear + direction))));
+  };
 
   return (
     <section className="mb-7 rounded-3xl border border-white/10 bg-zinc-900/70 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:p-6">
@@ -93,15 +99,25 @@ export function VehicleSearchWidget() {
           <option value="">الموديل</option>
           {selectedMake?.models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
         </select>
-        <input
-          type="number"
-          min="1950"
-          max={new Date().getFullYear() + 1}
-          value={year}
-          onChange={(event) => setYear(event.target.value)}
-          placeholder="سنة الصنع"
-          className="h-12 rounded-xl border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
-        />
+        <div className="relative">
+          <input
+            type="number"
+            min="1950"
+            max={maximumYear}
+            value={year}
+            onChange={(event) => setYear(event.target.value)}
+            placeholder="سنة الصنع"
+            className="h-12 w-full appearance-none rounded-xl border border-white/10 bg-zinc-950 px-3 pl-11 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <div className="absolute bottom-1.5 left-1.5 top-1.5 grid w-8 grid-rows-2 overflow-hidden rounded-lg border border-amber-400/25 bg-amber-400/10">
+            <button type="button" onClick={() => stepYear(1)} aria-label="زيادة سنة الصنع" className="grid place-items-center text-amber-400 transition hover:bg-amber-400 hover:text-zinc-950">
+              <ChevronUp size={13} strokeWidth={3} />
+            </button>
+            <button type="button" onClick={() => stepYear(-1)} aria-label="تقليل سنة الصنع" className="grid place-items-center border-t border-amber-400/20 text-amber-400 transition hover:bg-amber-400 hover:text-zinc-950">
+              <ChevronDown size={13} strokeWidth={3} />
+            </button>
+          </div>
+        </div>
         <button className="flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300">
           <Search size={16} /> تطبيق
         </button>
