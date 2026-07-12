@@ -1,9 +1,11 @@
-import { Tabs } from 'expo-router';
-import { View, Text, Platform } from 'react-native';
+import { Tabs, router } from 'expo-router';
+import { View, Platform } from 'react-native';
 import { useEffect } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { registerForPushNotificationsAsync } from '../../utils/pushNotifications';
 import OrderAlertQueue from '../../components/OrderAlertQueue';
+import InquiryAlertQueue from '../../components/InquiryAlertQueue';
+import * as Notifications from 'expo-notifications';
 
 export default function TabLayout() {
   useEffect(() => {
@@ -12,6 +14,12 @@ export default function TabLayout() {
         console.log('Push Token registered:', token);
       }
     });
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      if (response.notification.request.content.data?.type === 'NEW_INQUIRY') {
+        router.push('/logo');
+      }
+    });
+    return () => responseSubscription.remove();
   }, []);
 
   return (
@@ -84,6 +92,7 @@ export default function TabLayout() {
         />
       </Tabs>
       <OrderAlertQueue />
+      <InquiryAlertQueue />
     </>
   );
 }
