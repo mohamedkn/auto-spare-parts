@@ -153,6 +153,7 @@ export const productQuerySchema = z.object({
   condition: z.enum(["new_original", "new_aftermarket", "used", "refurbished"]).optional(),
   vehicleMakeId: z.string().uuid().optional(),
   vehicleModelId: z.string().uuid().optional(),
+  vehicleMarkets: z.string().max(100).optional(),
   year: z.coerce.number().int().optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),

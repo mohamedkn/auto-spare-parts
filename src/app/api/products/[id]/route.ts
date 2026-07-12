@@ -22,6 +22,7 @@ export async function GET(
       where: {
         id,
         status: "active",           // بس المنتجات النشطة
+        isPrivate: false,
         vendor: { status: "approved" }, // من متاجر معتمدة بس
       },
       select: {

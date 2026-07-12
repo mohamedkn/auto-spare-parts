@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     // Step 2: Build the Prisma query based on AI's understanding
     const whereClause: Prisma.ProductWhereInput = {
       status: "active",
+      isPrivate: false,
       vendor: { status: "approved" },
     };
 
@@ -206,6 +207,7 @@ export async function POST(request: NextRequest) {
       const fallbackProducts = await prisma.product.findMany({
         where: {
           status: "active",
+          isPrivate: false,
           vendor: { status: "approved" },
           AND: fallbackConditions.length > 0 ? fallbackConditions : undefined,
         },

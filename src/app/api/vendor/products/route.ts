@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       const duplicate = await prisma.product.findFirst({
         where: {
           vendorId: vendor.id,
+          isPrivate: false,
           OR: [
             ...(oemNumber ? [{ oemNumber: { equals: oemNumber, mode: "insensitive" as const } }] : []),
             ...(partNumber ? [{ partNumber: { equals: partNumber, mode: "insensitive" as const } }] : []),
@@ -170,6 +171,7 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.ProductWhereInput = {
       vendorId: vendor.id,
+      isPrivate: false,
       ...(status && { status }),
     };
 

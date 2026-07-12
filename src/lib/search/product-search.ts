@@ -1,4 +1,4 @@
-import { Prisma, ProductCondition } from "@prisma/client";
+import { Prisma, ProductCondition, VehicleMarket } from "@prisma/client";
 import { expandEgyptianSearchTerms } from "@/lib/catalog/egypt-auto-parts";
 import { normalizePartNumber, normalizeSearchText, searchTokens } from "@/lib/search/normalize";
 
@@ -11,6 +11,7 @@ export interface ProductSearchFilters {
   condition?: ProductCondition;
   vehicleMakeId?: string;
   vehicleModelId?: string;
+  vehicleMarkets?: VehicleMarket[];
   year?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -156,6 +157,10 @@ export function buildProductWhere(filters: ProductSearchFilters): Prisma.Product
     });
   }
 
+  if (filters.vehicleMarkets?.length) {
+    and.push({ compatibilities: { some: { vehicleModel: { make: { market: { in: filters.vehicleMarkets } } } } } });
+  }
+
   if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
     and.push({
       price: {
@@ -180,6 +185,7 @@ export function buildProductWhere(filters: ProductSearchFilters): Prisma.Product
 
   return {
     status: "active",
+    isPrivate: false,
     vendor: { status: "approved" },
     ...(and.length > 0 && { AND: and }),
   };

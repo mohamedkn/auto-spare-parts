@@ -15,6 +15,7 @@ export default async function VendorLayout({ children }: { children: React.React
   const navItems = [
     { href: "/vendor", label: "نظرة عامة", icon: "dashboard" as const },
     { href: "/vendor/products", label: "المنتجات والمخزون", icon: "products" as const },
+    { href: "/vendor/live", label: "رادار طلبات التسعير", icon: "catalog" as const },
     { href: "/vendor/orders", label: "الطلبات", icon: "cart" as const },
     { href: "/vendor/payouts", label: "المحفظة والتسويات", icon: "wallet" as const },
   ];

@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/db";
-import { Store, TrendingUp, Star, Package } from "lucide-react";
-import Link from "next/link";
+import { Store, Star, Package } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
 import { VendorApprovalButtons } from "../components/VendorApprovalButtons";
 
 export const metadata = {
   title: "المتاجر | لوحة الإدارة",
 };
+
+const specialtyLabels = { german: "ألماني", korean: "كوري", japanese: "ياباني", american: "أمريكي", chinese: "صيني", european: "أوروبي آخر", other: "أخرى" } as const;
 
 export default async function AdminVendorsPage() {
   const vendors = await prisma.vendor.findMany({
@@ -68,6 +69,12 @@ export default async function AdminVendorsPage() {
               </div>
 
               <div className="space-y-3 mb-6 flex-1">
+                <div>
+                  <p className="mb-2 text-xs font-bold text-slate-500">تخصصات المتجر</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {vendor.specialties.length ? vendor.specialties.map((specialty) => <span key={specialty} className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-400/10 dark:text-amber-300">{specialtyLabels[specialty]}</span>) : <span className="text-xs text-slate-400">كل الفروع — حساب قديم</span>}
+                  </div>
+                </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">العمولة المتفق عليها</span>
                   <span className="font-bold text-indigo-600 dark:text-indigo-400">{Number(vendor.commissionRate)}%</span>

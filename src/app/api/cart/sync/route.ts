@@ -37,6 +37,10 @@ export async function POST(request: NextRequest) {
         id: { in: productIds },
         status: "active",
         vendor: { status: "approved" },
+        OR: [
+          { isPrivate: false },
+          { isPrivate: true, quoteBid: { inquiry: { userId: authUser.userId } } },
+        ],
       },
       select: {
         id: true,

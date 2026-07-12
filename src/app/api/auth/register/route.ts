@@ -168,6 +168,7 @@ async function registerVendor(body: unknown) {
         bankAccount: data.bankAccount,
         instapayHandle: data.instapayHandle,
         walletPhone: data.walletPhone,
+        specialties: data.specialties,
       },
       select: {
         id: true,

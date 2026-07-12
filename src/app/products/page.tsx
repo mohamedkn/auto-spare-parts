@@ -8,6 +8,7 @@ import { ProductSortSelect } from "@/components/products/ProductSortSelect";
 import { VehicleSearchWidget } from "@/components/home/VehicleSearchWidget";
 import { prisma } from "@/lib/db";
 import { buildProductWhere, inferVehicleFilters, scoreProductRelevance } from "@/lib/search/product-search";
+import { parseVehicleMarkets } from "@/lib/vehicles/markets";
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -49,6 +50,7 @@ export default async function ProductsPage({
   const params = await searchParams;
   const search = valueOf(params.search)?.trim();
   const categoryId = valueOf(params.categoryId);
+  const vehicleMarkets = parseVehicleMarkets(valueOf(params.vehicleMarkets));
   const brand = valueOf(params.brand);
   const condition = valueOf(params.condition) as ProductCondition | undefined;
   const inStock = valueOf(params.inStock) as "true" | "false" | undefined;
@@ -74,7 +76,7 @@ export default async function ProductsPage({
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
-      where: { status: "active", brand: { not: null } },
+      where: { status: "active", isPrivate: false, brand: { not: null } },
       select: { brand: true },
       distinct: ["brand"],
       orderBy: { brand: "asc" },
@@ -102,6 +104,7 @@ export default async function ProductsPage({
     categoryId,
     brand,
     condition,
+    vehicleMarkets,
     inStock,
     vehicleMakeId: vehicleMakeId || inferredVehicle?.vehicleMakeId,
     vehicleModelId: vehicleModelId || inferredVehicle?.vehicleModelId,
@@ -148,29 +151,11 @@ export default async function ProductsPage({
 
   return (
     <main className="container mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8" dir="rtl">
-      <div className="relative mb-6 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-l from-amber-400/[0.08] via-zinc-900 to-zinc-950 p-6 text-white shadow-2xl shadow-black/20 sm:p-8">
-        <div className="absolute -left-20 -top-24 size-56 rounded-full bg-amber-400/10 blur-3xl" />
-        <h1 className="relative text-2xl font-black sm:text-3xl">ابحث عن القطعة المناسبة بدقة</h1>
-        <p className="mt-1 text-sm text-zinc-400">استخدم اسم القطعة أو الماركة أو رقم OEM، ثم حدّد سيارتك.</p>
-        <form action="/products" className="relative mt-5 flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500" size={19} />
-            <input
-              name="search"
-              defaultValue={search}
-              placeholder="مثال: تيل فرامل بوش صني 2020 أو 04465-02390"
-              className="h-14 w-full rounded-2xl border border-white/10 bg-zinc-950/70 pr-11 pl-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60 focus:ring-4 focus:ring-amber-400/10"
-            />
-          </div>
-          <button className="h-14 rounded-2xl bg-amber-400 px-7 text-sm font-black text-zinc-950 shadow-lg shadow-amber-500/10 transition hover:bg-amber-300">بحث</button>
-        </form>
-      </div>
-
       <VehicleSearchWidget />
 
-      <div className="mb-5 flex items-end justify-between gap-4">
+      <div className="mb-5 flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white">{search ? `نتائج البحث عن “${search}”` : "كل المنتجات"}</h2>
+          <h1 className="text-2xl font-black text-white">{search ? `نتائج البحث عن “${search}”` : "كل المنتجات"}</h1>
           <p className="mt-1 text-sm text-zinc-500">تم العثور على {total} منتج</p>
           {!vehicleModelId && inferredVehicle?.modelName && (
             <p className="mt-2 inline-flex rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">

@@ -5,6 +5,7 @@ import { successResponse, handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/db";
 import { buildProductWhere, inferVehicleFilters, scoreProductRelevance } from "@/lib/search/product-search";
 import { productQuerySchema } from "@/lib/validations/product";
+import { parseVehicleMarkets } from "@/lib/vehicles/markets";
 
 const productSelect = {
   id: true,
@@ -84,6 +85,7 @@ export async function GET(request: NextRequest) {
     const where = buildProductWhere({
       ...query,
       condition: query.condition,
+      vehicleMarkets: parseVehicleMarkets(query.vehicleMarkets),
       vehicleMakeId: query.vehicleMakeId || inferredVehicle?.vehicleMakeId,
       vehicleModelId: query.vehicleModelId || inferredVehicle?.vehicleModelId,
       year: query.year || inferredVehicle?.year,

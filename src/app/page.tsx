@@ -6,6 +6,7 @@ import { HeroSlider } from "@/components/home/HeroSlider";
 import { PromoGrids } from "@/components/home/PromoGrids";
 import { ProductStrip } from "@/components/home/ProductStrip";
 import { VehicleSearchWidget } from "@/components/home/VehicleSearchWidget";
+import { InquiryHero } from "@/components/inquiries/InquiryHero";
 
 export const revalidate = 60;
 
@@ -15,7 +16,7 @@ export default async function Home() {
     take: 8,
   });
   const featuredPromise = prisma.product.findMany({
-    where: { status: "active", vendor: { status: "approved" } },
+    where: { status: "active", isPrivate: false, vendor: { status: "approved" } },
     include: { images: { take: 1, select: { url: true } } },
     take: 10,
     orderBy: { createdAt: "desc" },
@@ -30,14 +31,14 @@ export default async function Home() {
       });
       if (topItems.length) {
         const fetchedProducts = await prisma.product.findMany({
-          where: { id: { in: topItems.map((item) => item.productId) }, status: "active", vendor: { status: "approved" } },
+          where: { id: { in: topItems.map((item) => item.productId) }, status: "active", isPrivate: false, vendor: { status: "approved" } },
           include: { images: { take: 1, select: { url: true } } },
         });
         const sorted = topItems.map((item) => fetchedProducts.find((product) => product.id === item.productId)).filter((product): product is NonNullable<typeof product> => Boolean(product));
         if (sorted.length) return sorted;
       }
       return prisma.product.findMany({
-        where: { status: "active", vendor: { status: "approved" } },
+        where: { status: "active", isPrivate: false, vendor: { status: "approved" } },
         include: { images: { take: 1, select: { url: true } } },
         take: 10,
         orderBy: { createdAt: "asc" },
@@ -51,6 +52,7 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 pb-10 dark:bg-zinc-950">
+      <InquiryHero />
       <HeroSlider />
 
       <div className="container relative z-10 mx-auto -mt-6 px-4 sm:px-6 lg:px-8">

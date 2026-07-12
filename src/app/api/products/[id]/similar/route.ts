@@ -55,7 +55,7 @@ export async function GET(
 
       if (sortedIds.length > 0) {
         similarProducts = await prisma.product.findMany({
-          where: { id: { in: sortedIds.slice(0, 5) }, status: "active" },
+          where: { id: { in: sortedIds.slice(0, 5) }, status: "active", isPrivate: false },
           include: { images: { take: 1, select: { url: true } } },
         });
 
@@ -70,6 +70,7 @@ export async function GET(
           categoryId: product.categoryId,
           id: { notIn: Array.from(seenIds) },
           status: "active",
+          isPrivate: false,
         },
         include: { images: { take: 1, select: { url: true } } },
         take: 5 - similarProducts.length,

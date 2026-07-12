@@ -94,6 +94,33 @@ enum ProductCondition {
   refurbished
 }
 
+enum InquiryStatus {
+  under_review
+  open
+  bidding_closed
+  accepted
+  cancelled
+  expired
+}
+
+enum BidStatus {
+  active
+  accepted
+  rejected
+  withdrawn
+  expired
+}
+
+enum VehicleMarket {
+  german
+  korean
+  japanese
+  american
+  chinese
+  european
+  other
+}
+
 // ─────────────────────────────────────────────
 // Enums for Delivery System v2
 // ─────────────────────────────────────────────
@@ -130,15 +157,15 @@ enum WalletTransactionType {
 
 /// المستخدمين — كل الأدوار في جدول واحد (customer / vendor / admin)
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  name         String   @db.VarChar(150)
-  email        String   @unique @db.VarChar(150)
-  passwordHash String   @map("password_hash")
-  phone        String?  @db.VarChar(20)
-  role         UserRole
-  expoPushToken String? @map("expo_push_token") @db.VarChar(100)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(150)
+  email         String   @unique @db.VarChar(150)
+  passwordHash  String   @map("password_hash")
+  phone         String?  @db.VarChar(20)
+  role          UserRole
+  expoPushToken String?  @map("expo_push_token") @db.VarChar(100)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
   vendorProfile Vendor?
@@ -154,6 +181,7 @@ model User {
   driverProfile   DeliveryDriver?
   deliveryRatings DeliveryRating[]
   notifications   Notification[]
+  inquiries       Inquiry[]
 
   @@index([role])
   @@map("users")
@@ -183,14 +211,16 @@ model Vendor {
   walletPhone    String? @map("wallet_phone") @db.VarChar(20)
 
   // 🆕 Phase 2.5: Vendor Rating Cache
-  avgRating    Decimal? @map("avg_rating") @db.Decimal(3, 2)
-  reviewsCount Int      @default(0) @map("reviews_count")
+  avgRating    Decimal?        @map("avg_rating") @db.Decimal(3, 2)
+  reviewsCount Int             @default(0) @map("reviews_count")
+  specialties  VehicleMarket[] @default([])
 
   // Relations
   owner     User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   products  Product[]
   subOrders SubOrder[]
   payouts   Payout[] // 🆕 مالي: سجل تسويات المتجر
+  bids      Bid[]
 
   @@index([status])
   @@map("vendors")
@@ -208,9 +238,10 @@ model Category {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[] @relation("CategoryHierarchy")
-  products Product[]
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+  inquiries Inquiry[]
 
   @@index([parentId])
   @@map("categories")
@@ -218,11 +249,12 @@ model Category {
 
 /// صانع السيارة (مثل تويوتا، هيونداي)
 model VehicleMake {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique @db.VarChar(100)
-  slug      String   @unique @db.VarChar(100)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String        @unique @db.VarChar(100)
+  slug      String        @unique @db.VarChar(100)
+  market    VehicleMarket @default(other)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
 
   models VehicleModel[]
 
@@ -283,6 +315,7 @@ model Product {
   stockQuantity Int              @default(0) @map("stock_quantity") // CHECK (>= 0) — في الـ migration اليدوية
   status        ProductStatus    @default(active)
   version       Int              @default(0) // القسم 7.1: Optimistic Locking لمنع overselling
+  isPrivate     Boolean          @default(false) @map("is_private")
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
 
@@ -296,6 +329,7 @@ model Product {
   reviews         Review[]
   wishlistedBy    WishlistItem[]
   compatibilities ProductCompatibility[] // السيارات المتوافقة
+  quoteBid        Bid?
 
   @@unique([vendorId, slug]) // 🆕v3: فريد لكل متجر مش عالميًا
   @@index([vendorId])
@@ -304,6 +338,58 @@ model Product {
   @@index([oemNumber])
   @@index([partNumber])
   @@map("products")
+}
+
+/// طلب تسعير حر يراجعه الأدمن قبل بثه للتجار لمدة محددة.
+model Inquiry {
+  id              String          @id @default(uuid()) @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  categoryId      String?         @map("category_id") @db.Uuid
+  description     String          @db.Text
+  imageUrl        String?         @map("image_url") @db.Text
+  vin             String?         @db.VarChar(50)
+  aiParsedData    Json?           @map("ai_parsed_data")
+  adminNotes      String?         @map("admin_notes") @db.Text
+  status          InquiryStatus   @default(under_review)
+  biddingStartsAt DateTime?       @map("bidding_starts_at")
+  biddingEndsAt   DateTime?       @map("bidding_ends_at")
+  acceptedBidId   String?         @unique @map("accepted_bid_id") @db.Uuid
+  vehicleMarkets  VehicleMarket[] @default([]) @map("vehicle_markets")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  bids        Bid[]     @relation("InquiryBids")
+  acceptedBid Bid?      @relation("AcceptedInquiryBid", fields: [acceptedBidId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, biddingEndsAt])
+  @@map("inquiries")
+}
+
+/// عرض تاجر؛ السعر والعمولة يثبتان عند تحويل العرض المقبول إلى قطعة خاصة.
+model Bid {
+  id        String           @id @default(uuid()) @db.Uuid
+  inquiryId String           @map("inquiry_id") @db.Uuid
+  vendorId  String           @map("vendor_id") @db.Uuid
+  productId String?          @unique @map("product_id") @db.Uuid
+  price     Decimal          @db.Decimal(10, 2)
+  condition ProductCondition
+  notes     String?          @db.Text
+  status    BidStatus        @default(active)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  inquiry     Inquiry  @relation("InquiryBids", fields: [inquiryId], references: [id], onDelete: Cascade)
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  acceptedFor Inquiry? @relation("AcceptedInquiryBid")
+
+  @@unique([inquiryId, vendorId])
+  @@index([inquiryId, status, price])
+  @@index([vendorId, createdAt])
+  @@map("bids")
 }
 
 /// صور المنتجات
@@ -677,10 +763,10 @@ model DeliveryJob {
   cancelledAt DateTime? @map("cancelled_at")
 
   // Relations
-  subOrder SubOrder        @relation(fields: [subOrderId], references: [id], onDelete: Restrict)
-  driver   DeliveryDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  subOrder           SubOrder            @relation(fields: [subOrderId], references: [id], onDelete: Restrict)
+  driver             DeliveryDriver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
   walletTransactions WalletTransaction[]
-  rating DeliveryRating?
+  rating             DeliveryRating?
 
   @@index([status])
   @@index([driverId])
@@ -713,9 +799,9 @@ model DeliveryRating {
   createdAt     DateTime @default(now()) @map("created_at")
 
   // Relations
-  driver   DeliveryDriver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  customer User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  deliveryJob DeliveryJob @relation(fields: [deliveryJobId], references: [id], onDelete: Cascade)
+  driver      DeliveryDriver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  customer    User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deliveryJob DeliveryJob    @relation(fields: [deliveryJobId], references: [id], onDelete: Cascade)
 
   @@index([driverId])
   @@map("delivery_ratings")
@@ -727,7 +813,7 @@ model Notification {
   title     String
   message   String
   read      Boolean  @default(false)
-  type      String   // 'ORDER_RECEIVED', 'PAYOUT_REQUESTED', 'PAYOUT_SETTLED', etc.
+  type      String // 'ORDER_RECEIVED', 'PAYOUT_REQUESTED', 'PAYOUT_SETTLED', etc.
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { VEHICLE_MARKET_VALUES } from "@/lib/vehicles/markets";
 
 // ─────────────────────────────────────────────
 // Register — Customer
@@ -58,6 +59,7 @@ export const registerVendorSchema = z.object({
   bankAccount: z.string().min(1, "رقم الحساب البنكي مطلوب").max(150),
   instapayHandle: z.string().max(100).optional(),
   walletPhone: z.string().max(20).optional(),
+  specialties: z.array(z.enum(VEHICLE_MARKET_VALUES)).min(1, "اختر تخصصًا واحدًا على الأقل").max(VEHICLE_MARKET_VALUES.length),
 });
 
 export type RegisterVendorInput = z.infer<typeof registerVendorSchema>;

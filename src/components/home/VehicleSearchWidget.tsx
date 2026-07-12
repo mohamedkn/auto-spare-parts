@@ -12,6 +12,7 @@ interface VehicleModel {
 interface VehicleMake {
   id: string;
   name: string;
+  market: string;
   models: VehicleModel[];
 }
 
@@ -33,11 +34,13 @@ export function VehicleSearchWidget() {
 
   const updateVehicleFilters = (clear = false) => {
     const params = new URLSearchParams(currentParams.toString());
-    ["vehicleMakeId", "vehicleModelId", "year", "page"].forEach((key) => params.delete(key));
+    ["vehicleMakeId", "vehicleModelId", "vehicleMarkets", "year", "page"].forEach((key) => params.delete(key));
     if (!clear) {
       if (makeId) params.set("vehicleMakeId", makeId);
       if (modelId) params.set("vehicleModelId", modelId);
       if (year) params.set("year", year);
+      const market = vehicles.find((vehicle) => vehicle.id === makeId)?.market;
+      if (market) params.set("vehicleMarkets", market);
     }
     router.push(`/products?${params.toString()}`);
   };

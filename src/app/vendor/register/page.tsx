@@ -11,11 +11,19 @@ const PERKS = [
   { icon: Store, text: "لوحة تحكم متكاملة لإدارة منتجاتك وطلباتك" },
 ];
 
+const VEHICLE_MARKETS = [
+  { value: "german", label: "ألماني" }, { value: "korean", label: "كوري" },
+  { value: "japanese", label: "ياباني" }, { value: "american", label: "أمريكي" },
+  { value: "chinese", label: "صيني" }, { value: "european", label: "أوروبي آخر" },
+  { value: "other", label: "أخرى" },
+] as const;
+
 export default function VendorRegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState<"account" | "store">("account");
+  const [specialties, setSpecialties] = useState<string[]>([]);
   const [form, setForm] = useState({
     // Account
     name: "",
@@ -53,6 +61,10 @@ export default function VendorRegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (specialties.length === 0) {
+      setError("اختر تخصصًا واحدًا على الأقل لمتجرك");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -66,10 +78,11 @@ export default function VendorRegisterPage() {
           phone: form.phone,
           role: "vendor",
           storeName: form.storeName,
-          storeDesc: form.storeDescription,
+          storeDescription: form.storeDescription,
           bankAccount: form.bankAccount,
           instapayHandle: form.instapayHandle,
           walletPhone: form.walletPhone,
+          specialties,
         }),
       });
 
@@ -247,6 +260,17 @@ export default function VendorRegisterPage() {
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm resize-none"
                       />
                     </div>
+
+                    <fieldset className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+                      <legend className="px-2 text-sm font-bold text-slate-900 dark:text-white">تخصصات السيارات <span className="text-red-500">*</span></legend>
+                      <p className="mb-3 text-xs leading-5 text-slate-500">اختر فرعًا أو أكثر. سنرسل لك طلبات التسعير المطابقة لتخصصك فقط.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {VEHICLE_MARKETS.map((market) => {
+                          const selected = specialties.includes(market.value);
+                          return <button key={market.value} type="button" onClick={() => setSpecialties((current) => selected ? current.filter((value) => value !== market.value) : [...current, market.value])} className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition ${selected ? "border-amber-400 bg-amber-400 text-zinc-950 shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-amber-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"}`}>{selected && <CheckCircle className="ml-1 inline" size={15} />}{market.label}</button>;
+                        })}
+                      </div>
+                    </fieldset>
 
                     {/* الحسابات البنكية والمحافظ */}
                     <div className="pt-4 border-t border-slate-200 dark:border-slate-800">

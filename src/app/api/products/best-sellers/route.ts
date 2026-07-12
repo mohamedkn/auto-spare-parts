@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     if (topItems.length > 0) {
       const productIds = topItems.map(item => item.productId);
       const fetchedProducts = await prisma.product.findMany({
-        where: { id: { in: productIds }, status: "active", vendor: { status: "approved" } },
+        where: { id: { in: productIds }, status: "active", isPrivate: false, vendor: { status: "approved" } },
         include: bestSellerInclude,
       });
       
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     // Fallback if no sales exist in the DB yet: fetch oldest products or featured ones
     if (bestSellers.length === 0) {
       bestSellers = await prisma.product.findMany({
-        where: { status: "active", vendor: { status: "approved" } },
+        where: { status: "active", isPrivate: false, vendor: { status: "approved" } },
         include: bestSellerInclude,
         take: limit,
         orderBy: { createdAt: "asc" }, // Oldest as fallback

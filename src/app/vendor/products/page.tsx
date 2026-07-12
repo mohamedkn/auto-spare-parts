@@ -22,6 +22,7 @@ export default async function VendorProductsPage({ searchParams }: PageProps<"/v
   const products = await prisma.product.findMany({
     where: {
       vendorId: vendor.id,
+      isPrivate: false,
       ...(query ? {
         OR: [
           { name: { contains: query, mode: "insensitive" as const } },

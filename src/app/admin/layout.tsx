@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
     { href: "/admin", label: "نظرة عامة", icon: "dashboard" as const },
     { href: "/admin/orders", label: "إدارة الطلبات", icon: "orders" as const },
     { href: "/admin/vendors", label: "المتاجر والتجار", icon: "vendors" as const },
+    { href: "/admin/inquiries", label: "مراجعة طلبات التسعير", icon: "catalog" as const },
     { href: "/products", label: "مراجعة الكتالوج", icon: "catalog" as const },
   ];
 
