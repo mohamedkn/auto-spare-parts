@@ -78,12 +78,17 @@ export function NavbarClient({ user, cartCount, categories = [] }: NavbarClientP
             >
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
-            <Link href="/" className="flex items-center gap-2">
-              <div className="bg-primary text-black p-1.5 rounded-lg flex items-center justify-center">
+            <Link href="/" aria-label="AutoParts — الرئيسية" className="group flex items-center gap-2.5">
+              <div className="flex items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 p-2 text-zinc-950 shadow-lg shadow-amber-500/15 transition duration-300 group-hover:-rotate-3 group-hover:scale-105">
                 <Package size={20} className="stroke-[2.5]" />
               </div>
-              <span className="text-xl font-black tracking-tight text-white hidden sm:block">
-                AutoParts<span className="text-primary">.</span>
+              <span className="hidden flex-col leading-none sm:flex" dir="ltr">
+                <span className="text-[21px] font-black tracking-[-0.045em]">
+                  <span className="text-white">AUTO</span><span className="bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">PARTS</span>
+                </span>
+                <span className="mt-1 flex items-center gap-1.5 text-[9px] font-bold tracking-normal text-zinc-500" dir="rtl">
+                  <span className="h-px w-4 bg-amber-400" /> سوق قطع الغيار الموثوق
+                </span>
               </span>
             </Link>
           </div>
