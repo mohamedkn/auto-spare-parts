@@ -26,6 +26,11 @@ const securityHeaders = [
   ...(isProduction ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }] : []),
 ];
 
+const publicImageHeaders = [
+  ...securityHeaders.filter((header) => header.key !== "Cross-Origin-Resource-Policy"),
+  { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
+];
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -34,7 +39,12 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    const routes = [{ source: "/:path*", headers: securityHeaders }];
+    const routes = [
+      { source: "/:path*", headers: securityHeaders },
+      // Expo web runs on a separate origin in development and needs access to
+      // the public catalog images served by the Next.js app.
+      { source: "/images/:path*", headers: publicImageHeaders },
+    ];
 
     if (process.env.NODE_ENV === "development") {
       routes.push({
